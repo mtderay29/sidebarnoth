@@ -2,185 +2,360 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>Sidebar Notes</title>
-
+<title>Sidebar Notlar</title>
 <style>
-:root {
-  --bg:#1e1e1e;--panel:#252526;--border:#333;
-  --text:#e6e6e6;--muted:#9e9e9e;
-  --accent:#4fc3f7;--danger:#ff6b6b;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
-*{box-sizing:border-box;font-family:system-ui}
-body{margin:0;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
-header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--border)}
-header button{background:none;border:none;color:var(--text);font-size:18px;cursor:pointer}
-main{flex:1;display:flex;overflow:hidden}
-aside{width:45%;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto}
-.folder{border-bottom:1px solid var(--border)}
-.folder-header{padding:8px 10px;cursor:pointer;font-weight:600}
-.folder-header:hover{background:#2a2a2a}
-.notes{padding-left:12px}
-.note{padding:6px 10px;cursor:pointer;border-left:2px solid transparent}
-.note:hover{background:#2a2a2a}
-.note.active{border-left-color:var(--accent);color:var(--accent)}
-.controls{padding:6px}
-.controls button{width:100%;margin-bottom:4px;background:var(--accent);border:none;padding:5px;font-weight:600;cursor:pointer}
-section{flex:1;padding:12px;overflow-y:auto}
-input,textarea,select{width:100%;margin-bottom:8px;background:#1b1b1b;border:1px solid var(--border);color:var(--text);padding:6px}
-textarea{min-height:140px}
-.actions{display:flex;gap:6px}
-.actions button{border:none;padding:6px;font-weight:600;cursor:pointer}
-.save{background:var(--accent)}
-.delete{background:var(--danger)}
-.cancel{background:#555}
-.muted{font-size:12px;color:var(--muted)}
+
+body {
+  background: #1e1e1e;
+  color: #e0e0e0;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+/* SOL PANEL */
+#sidebar {
+  width: 40%;
+  min-width: 220px;
+  max-width: 280px;
+  background: #252525;
+  border-right: 1px solid #333;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.sidebar-header {
+  margin-bottom: 10px;
+}
+
+button {
+  background: #333;
+  color: #ddd;
+  border: none;
+  padding: 6px 8px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+button:hover {
+  background: #444;
+}
+
+.folder {
+  margin-top: 6px;
+}
+
+.folder-title {
+  padding: 6px;
+  cursor: pointer;
+}
+
+.folder-title.selected {
+  background: #3a3a3a;
+  color: #4fc3f7;
+}
+
+.notes {
+  margin-left: 10px;
+  margin-top: 4px;
+}
+
+.note-title {
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.note-title.selected {
+  background: #3a3a3a;
+  color: #81c784;
+}
+
+/* SAĞ PANEL */
+#content {
+  flex: 1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#settings {
+  cursor: pointer;
+  font-size: 18px;
+}
+
+input, textarea {
+  width: 100%;
+  background: #2b2b2b;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  padding: 6px;
+  margin-bottom: 8px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  width: auto;
+  flex: 1;
+}
+
+.readonly {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.5;
+}
 </style>
 </head>
-
 <body>
-
-<header>
-  <div>📁 Notlar</div>
-  <button id="toggleEdit">⚙️</button>
-</header>
-
-<main>
-<aside>
-  <div class="controls">
-    <button onclick="startNewFolder()">➕ Yeni Klasör</button>
+<div id="app">
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <button id="addFolder">+ Yeni Klasör Oluştur</button>
+    </div>
+    <div id="folderList"></div>
   </div>
-  <div id="folders"></div>
-</aside>
 
-<section id="content"></section>
-</main>
+  <div id="content">
+    <div class="content-header">
+      <div id="contentTitle"></div>
+      <div id="settings">⚙️</div>
+    </div>
+    <div id="contentBody"></div>
+  </div>
+</div>
 
 <script>
-const KEY="sidebar_folders_v3";
-let folders=JSON.parse(localStorage.getItem(KEY))||[];
-let current={folder:null,note:null,mode:null};
-let edit=false;
+const STORAGE_KEY = "sidebar_notes_app";
 
-if(!folders.length){
- folders.push({id:Date.now(),title:"Genel",open:true,notes:[]});
- save();
+let state = {
+  folders: [],
+  selectedFolderId: null,
+  selectedNoteId: null,
+  editMode: false
+};
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function save(){localStorage.setItem(KEY,JSON.stringify(folders));}
-
-/* ---- YENİ KLASÖR AKIŞI ---- */
-function startNewFolder(){
- current={folder:{title:""},note:null,mode:"new-folder"};
- edit=true;
- render();
-}
-
-function createFolder(){
- const name=document.getElementById("newFolderName").value.trim();
- if(!name)return;
- const f={id:Date.now(),title:name,open:true,notes:[]};
- folders.push(f);
- current={folder:f,note:null,mode:"folder"};
- edit=false;
- save();render();
-}
-
-/* ---- NOT ---- */
-function newNote(fid){
- const f=folders.find(x=>x.id===fid);
- const n={id:Date.now(),title:"Yeni Not",content:""};
- f.notes.push(n);
- current={folder:f,note:n,mode:"note"};
- edit=true;save();render();
-}
-
-/* ---- RENDER ---- */
-function render(){
- const fdiv=document.getElementById("folders");
- fdiv.innerHTML="";
- folders.forEach(f=>{
-  const box=document.createElement("div");
-  box.className="folder";
-
-  const h=document.createElement("div");
-  h.className="folder-header";
-  h.textContent=(f.open?"📂 ":"📁 ")+f.title;
-  h.onclick=()=>{current={folder:f,note:null,mode:"folder"};render();};
-  h.ondblclick=()=>{f.open=!f.open;save();render();};
-  box.appendChild(h);
-
-  if(f.open){
-   const ndiv=document.createElement("div");
-   ndiv.className="notes";
-   f.notes.forEach(n=>{
-    const d=document.createElement("div");
-    d.className="note"+(current.note?.id===n.id?" active":"");
-    d.textContent=n.title||"(Başlıksız)";
-    d.onclick=()=>{current={folder:f,note:n,mode:"note"};render();};
-    ndiv.appendChild(d);
-   });
-   const btn=document.createElement("div");
-   btn.className="note muted";
-   btn.textContent="➕ Not ekle";
-   btn.onclick=()=>newNote(f.id);
-   ndiv.appendChild(btn);
-   box.appendChild(ndiv);
+function loadState() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) state = JSON.parse(data);
+  } catch {
+    state = { folders: [], selectedFolderId: null, selectedNoteId: null, editMode: false };
   }
-  fdiv.appendChild(box);
- });
- renderContent();
 }
 
-function renderContent(){
- const c=document.getElementById("content");
- if(!current.mode){c.innerHTML="<p class='muted'>Seçim yok</p>";return;}
-
- if(current.mode==="new-folder"){
-  c.innerHTML=`
-    <h3>📁 Yeni Klasör</h3>
-    <input id="newFolderName" placeholder="Klasör adı">
-    <div class="actions">
-      <button class="save" onclick="createFolder()">Oluştur</button>
-      <button class="cancel" onclick="cancel()">İptal</button>
-    </div>`;
- }
-
- if(current.mode==="folder"){
-  c.innerHTML=`<h3>📁 ${current.folder.title}</h3>`;
- }
-
- if(current.mode==="note"){
-  const n=current.note;
-  c.innerHTML= edit ? `
-    <input id="t" value="${n.title}">
-    <textarea id="c">${n.content}</textarea>
-    <div class="actions">
-      <button class="save" onclick="saveNote()">Kaydet</button>
-      <button class="delete" onclick="deleteNote()">Sil</button>
-    </div>` :
-    `<h3>${n.title}</h3><p>${n.content}</p>`;
- }
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-function cancel(){
- current={folder:null,note:null,mode:null};
- edit=false;render();
+/* RENDER */
+function render() {
+  renderSidebar();
+  renderContent();
+  saveState();
 }
 
-function saveNote(){
- current.note.title=t.value;
- current.note.content=c.value;
- save();render();
+function renderSidebar() {
+  const list = document.getElementById("folderList");
+  list.innerHTML = "";
+
+  state.folders.forEach(folder => {
+    const f = document.createElement("div");
+    f.className = "folder";
+
+    const title = document.createElement("div");
+    title.className = "folder-title" + (folder.id === state.selectedFolderId ? " selected" : "");
+    title.textContent = folder.name;
+
+    let clickTimer = null;
+    title.onclick = () => {
+      if (clickTimer) return;
+      clickTimer = setTimeout(() => {
+        state.selectedFolderId = folder.id;
+        state.selectedNoteId = null;
+        state.editMode = false;
+        render();
+        clickTimer = null;
+      }, 200);
+    };
+
+    title.ondblclick = () => {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      folder.open = !folder.open;
+      render();
+    };
+
+    f.appendChild(title);
+
+    if (folder.open) {
+      const notes = document.createElement("div");
+      notes.className = "notes";
+
+      folder.notes.forEach(note => {
+        const n = document.createElement("div");
+        n.className = "note-title" + (note.id === state.selectedNoteId ? " selected" : "");
+        n.textContent = note.title;
+        n.onclick = () => {
+          state.selectedNoteId = note.id;
+          state.selectedFolderId = folder.id;
+          state.editMode = false;
+          render();
+        };
+        notes.appendChild(n);
+      });
+
+      const addNote = document.createElement("button");
+      addNote.textContent = "+ Yeni Not Ekle";
+      addNote.onclick = () => {
+        const newNote = { id: uid(), title: "Yeni Notlar", content: "" };
+        folder.notes.push(newNote);
+        state.selectedFolderId = folder.id;
+        state.selectedNoteId = newNote.id;
+        state.editMode = false;
+        render();
+      };
+
+      notes.appendChild(addNote);
+      f.appendChild(notes);
+    }
+
+    list.appendChild(f);
+  });
 }
 
-function deleteNote(){
- current.folder.notes=current.folder.notes.filter(n=>n!==current.note);
- cancel();save();
+function renderContent() {
+  const title = document.getElementById("contentTitle");
+  const body = document.getElementById("contentBody");
+  title.textContent = "";
+  body.innerHTML = "";
+
+  const folder = state.folders.find(f => f.id === state.selectedFolderId);
+  if (!folder) return;
+
+  const note = folder.notes.find(n => n.id === state.selectedNoteId);
+
+  if (note) {
+    title.textContent = note.title;
+    if (state.editMode) {
+      const t = document.createElement("input");
+      t.value = note.title;
+
+      const ta = document.createElement("textarea");
+      ta.value = note.content;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const save = document.createElement("button");
+      save.textContent = "Kaydet";
+      save.onclick = () => {
+        note.title = t.value.trim() || "Yeni Notlar";
+        note.content = ta.value;
+        state.editMode = false;
+        render();
+      };
+
+      const del = document.createElement("button");
+      del.textContent = "Sil";
+      del.onclick = () => {
+        folder.notes = folder.notes.filter(n => n.id !== note.id);
+        state.selectedNoteId = null;
+        state.editMode = false;
+        render();
+      };
+
+      actions.append(save, del);
+      body.append(t, ta, actions);
+    } else {
+      const view = document.createElement("div");
+      view.className = "readonly";
+      view.textContent = note.content;
+      body.appendChild(view);
+    }
+  } else {
+    title.textContent = folder.name;
+    if (state.editMode) {
+      const input = document.createElement("input");
+      input.value = folder.name;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const save = document.createElement("button");
+      save.textContent = "Kaydet";
+      save.onclick = () => {
+        folder.name = input.value.trim() || "Yeni Klasör";
+        state.editMode = false;
+        render();
+      };
+
+      const del = document.createElement("button");
+      del.textContent = "Sil";
+      del.onclick = () => {
+        state.folders = state.folders.filter(f => f.id !== folder.id);
+        state.selectedFolderId = null;
+        state.editMode = false;
+        render();
+      };
+
+      actions.append(save, del);
+      body.append(input, actions);
+    }
+  }
 }
 
-toggleEdit.onclick=()=>{edit=!edit;render();};
+/* EVENTS */
+document.getElementById("addFolder").onclick = () => {
+  const folder = { id: uid(), name: "Yeni Klasör", open: true, notes: [] };
+  state.folders.push(folder);
+  state.selectedFolderId = folder.id;
+  state.selectedNoteId = null;
+  state.editMode = false;
+  render();
+};
+
+document.getElementById("settings").onclick = () => {
+  if (!state.selectedFolderId) return;
+  state.editMode = !state.editMode;
+  render();
+};
+
+/* INIT */
+loadState();
 render();
 </script>
-
 </body>
 </html>
